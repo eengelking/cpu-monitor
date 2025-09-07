@@ -61,16 +61,17 @@ func (c *Collector) Collect() (*CPUMetrics, error) {
 		Timestamp: time.Now(),
 	}
 
-	// Use 100ms interval for accurate CPU sampling without high overhead
-	totalPercent, err := cpu.Percent(100*time.Millisecond, false)
-	if err == nil && len(totalPercent) > 0 {
-		metrics.TotalUsage = totalPercent[0]
-	}
-
-	// For per-core, we can use the cached values to avoid double sampling
+	// Get per-core CPU usage with 100ms sampling interval (single call for efficiency)
 	perCorePercent, err := cpu.Percent(100*time.Millisecond, true)
-	if err == nil {
+	if err == nil && len(perCorePercent) > 0 {
 		metrics.PerCoreUsage = perCorePercent
+		
+		// Calculate total CPU usage from per-core data (average of all cores)
+		var total float64
+		for _, coreUsage := range perCorePercent {
+			total += coreUsage
+		}
+		metrics.TotalUsage = total / float64(len(perCorePercent))
 	}
 
 	// Use cached static values
